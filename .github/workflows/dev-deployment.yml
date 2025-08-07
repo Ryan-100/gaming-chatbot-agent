@@ -1,0 +1,57 @@
+name: DEV Deployment
+on:
+  push:
+    branches:
+      - dev
+      
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup AWS ECR
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-pf-aws-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and push the tagged docker image to Amazon ECR
+        id: build-image
+        env:
+          ECR: ${{ secrets.AWS_ECR }}
+          BRANCH_NAME: ${{ github.ref_name }} # Branch name
+        run: |
+          IMAGE_TAG=zgb-$BRANCH_NAME
+          rm apps/z-gaming/.env*
+          mv .env.dev apps/z-gaming/.env 
+          docker build -t $ECR:$IMAGE_TAG -f ./apps/z-gaming/Dockerfile .
+          docker push $ECR:$IMAGE_TAG
+
+######################
+## Only DEV  ##
+######################
+
+  deploy_to_dev:
+    name: z-deploy-dev
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    steps:
+      - name: Deploy to Development
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.DEV_SERVER_IP }}
+          username: ${{ secrets.DEV_SERVER_USER }}
+          key: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+          command_timeout: 30m
+          script: |
+            cd /home/ubuntu/devops/
+            bash dev-deploy.sh

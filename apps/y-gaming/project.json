@@ -1,0 +1,9 @@
+{
+  "name": "y-gaming",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/y-gaming",
+  "projectType": "application",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project y-gaming --web",
+  "targets": {}
+}

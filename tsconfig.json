@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@jgi-fe-org/shared": ["shared/src/index.ts"],
+      "@jgi-fe-org/shared/*": ["shared/src/*"]
+    }
+  }
+}

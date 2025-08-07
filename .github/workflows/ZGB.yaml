@@ -1,0 +1,56 @@
+name: ZGB Deployment
+on:
+  push:
+    branches:
+      - production
+     
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup AWS ECR
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-pf-aws-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and push the tagged docker image to Amazon ECR
+        id: build-image
+        env:
+          ECR: ${{ secrets.AWS_ECR }}
+          BRANCH_NAME: ${{ github.ref_name }} # Branch name
+        run: |
+          IMAGE_TAG=ZGB-$BRANCH_NAME
+          cp .env.ZGB .env
+          cp .env.ZGB apps/z-gaming/.env
+          docker build -t $ECR:$IMAGE_TAG -f ./apps/z-gaming/Dockerfile .
+          docker push $ECR:$IMAGE_TAG
+
+######################
+## Only PROD  ##
+######################
+
+  deploy_to_production:
+    name: Deploy to Production
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/production'
+    steps:
+      - name: Deploy to Production
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.PROD_EC2_IP }}
+          username: ${{ secrets.PROD_EC2_USER }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          command_timeout: 30m
+          script: |
+            kubectl rollout restart deployment frontend-agent -n ZGB
